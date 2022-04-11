@@ -1,0 +1,133 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb 23 13:30:50 2022
+
+@author: Sean W. Hyland
+"""
+import numpy as np
+import pandas as pd
+import os
+
+os.chdir("Directory where to store data")
+
+a = pd.read_excel(open('HR Data.xlsx','rb'),sheet_name="Sheet1")
+b = pd.read_excel(open('HR Data 2.xlsx','rb'),sheet_name="Sheet1")
+employee_data = pd.concat([a, b], ignore_index=True)
+employee_data = employee_data.drop_duplicates(subset=['ID'])
+employee_data = employee_data.iloc[:,[0,2,21,8,9,7,34,11,38,40,13,41,15,42,43,16,44,45,10,18,49,50,54,57,1,22,23]]
+
+Legal_Name = employee_data.Legal_Name
+Legal_Name = Legal_Name.dropna()
+Legal_Name = [n.split(" ") for n in Legal_Name]
+Legal_Name = pd.DataFrame(Legal_Name)
+Legal_Name[0] = Legal_Name[0]+" "+Legal_Name[1]
+employee_data['Legal_Name'] = Legal_Name[0]
+
+ID = pd.read_csv('IS Data.csv', encoding = 'unicode_escape')
+Legal_Name = ID.assigned_to
+Legal_Name = Legal_Name.fillna(' ')
+Legal_Name = [", ".join(n.split(" ")[::-1]) for n in Legal_Name]
+ID['Legal_Name'] = Legal_Name
+result = ID.merge(employee_data, on='Legal_Name', how='left')
+result['E-Mail'] = result['E-Mail'].str.lower()
+
+#This is a laptop
+os.chdir("Directory of where data is stored")
+Aruba = pd.read_csv('Food Services.csv')
+aruba = Aruba.copy()
+aruba['UserID'] = aruba['ID']
+aruba['Laptop'] = ''
+aruba['Laptop'] = aruba['ID'].str[:5]
+aruba.loc[aruba.Laptop == 'CORPO', 'UserID'] = aruba['ID'].str[10:]
+aruba['Laptop'] = aruba['ID']
+a = aruba
+a = a.drop(columns=['ID'])
+a['UserID'] = a['UserID'].str.upper()
+a = a.rename(columns={'Location_x':'Location'})
+final1 = a.merge(result, on='UserID', how='left')
+final1 = final1.iloc[:,[0,1,2,13,14,3,4,5,6,7,8,9,10,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37]]
+
+del(a)
+
+#This is a laptop
+aruba = Aruba.copy()
+aruba['ci'] = ""
+aruba['Laptop2'] = ''
+aruba['Laptop2'] = aruba['ID'].str[:5]
+aruba.loc[aruba.Laptop2 == 'host/', 'ci'] = aruba['ID'].str[5:19]
+aruba['Laptop2'] = aruba['ci']
+aruba = aruba.drop(columns=['ID'])
+aruba['ci'].replace('', np.nan, inplace=True)
+aruba = aruba[aruba['ci'].notna()]
+b = aruba
+final2 = b.merge(result, on='ci', how='left')
+final2 = final2.replace(r'^\s*$', np.nan, regex=True)
+final2 = final2.iloc[:,[0,1,8,13,14,4,5,6,7,9,11,2,12,15,16,10,17,18,19,20,21,22,23,24,25,3,26,27,28,29,30,31,32,33,34,35,36,37]]
+final2 = final2.rename(columns={'Date':'Date_Time'})
+final2 = final2[final2['ci'].notna()]
+del(b)
+
+#This is a cell phone
+aruba = Aruba.copy()
+aruba['E-Mail'] = ""
+aruba['Cell'] = ''
+aruba['Cell'] = aruba['ID'].str[-10:]
+aruba.loc[aruba.Cell == '@business.com', 'E-Mail'] = aruba['ID']
+aruba['E-Mail'].replace("",np.nan,inplace = True)
+aruba.dropna(subset=['E-Mail'], inplace=True)
+aruba['UserID'] = aruba['E-Mail']
+aruba = aruba.drop(columns=['ID'])
+aruba = aruba.drop(columns=['Cell'])
+c = aruba
+c = c.replace(r'^\s*$', np.nan, regex=True)
+c = c[c['E-Mail'].notna()]
+c.reset_index(drop=True, inplace=True)
+final3 = c.merge(result, on='E-Mail', how='left')
+final3 = final3.iloc[:,[0,1,8,14,15,4,5,6,7,9,11,12,13,16,10,17,18,19,20,21,22,23,24,2,25,3,26,27,28,29,30,31,32,33,34,35,36,37]]
+del(c)
+
+#These are unmanaged devices
+aruba = Aruba.copy()
+aruba['Unidentified'] = ""
+aruba['Unmanaged'] = ''
+aruba['Unmanaged'] = aruba['ID'].str[:5]
+aruba.loc[aruba.Unmanaged == 'host/', 'Unidentified'] = "N/A"
+aruba['Unmanaged'] = aruba['ID'].str[-10:]
+aruba.loc[aruba.Unmanaged == '@business.com', 'Unidentified'] = "N/A"
+aruba['Unmanaged'] = aruba['ID'].str[:5]
+aruba.loc[aruba.Unmanaged == 'CORPO', 'Unidentified'] = "N/A"
+aruba = aruba.drop(aruba[aruba.Unidentified == "N/A"].index)
+aruba['ID'] = aruba['ID'].str.upper()
+aruba = aruba.rename(columns={'ID':'UserID'})
+aruba['Unidentified'] = aruba['UserID']
+aruba['Length'] = aruba.Unidentified.str.len()
+aruba = aruba[aruba.Length > 6]
+aruba['Unmanaged'] = aruba['UserID'].str[-10:]
+aruba.loc[aruba.Unmanaged == 'MESITE.COM', 'Unidentified'] = "N/A"
+aruba = aruba.drop(aruba[aruba.Unidentified == "N/A"].index)
+aruba = aruba.drop(columns=['Unmanaged', 'Length'])
+aruba['Unidentified'].replace('', np.nan, inplace=True)
+aruba = aruba[aruba['Unidentified'].notna()]
+final4 = aruba
+final4 = final4.drop(columns=['UserID'])
+final4 = final4.rename(columns={'Unidentified':'UserID'})
+del(aruba)
+
+
+df_merged = pd.concat([final1, final2], ignore_index=True)
+del(final1)
+del(final2)
+df_merged = pd.concat([df_merged, final3], ignore_index=True)
+del(final3)
+df_merged = pd.concat([df_merged, final4], ignore_index=True)
+del(final4)
+df_merged = df_merged.rename(columns={'UserID':'ID'})
+
+
+df_merged['ID'] = df_merged['ID'].str.upper()
+df_merged['Assigned To'] = df_merged['Location']
+df_merged['ID1'] = df_merged['ID']
+df_merged['Food_Service'] = df_merged['ID']
+df_merged['Cell'] = ""
+
+df_merged.to_csv('result_Food_Service.csv',index = False)
